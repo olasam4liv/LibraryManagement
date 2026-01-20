@@ -1,3 +1,4 @@
+
 using LibraryManagementSystem.Data;
 using LibraryManagementSystem.Dto;
 using LibraryManagementSystem.Endpoints;
@@ -32,11 +33,15 @@ builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
+// Register CacheService
+builder.Services.AddSingleton<ICacheService, CacheService>();
+
 // Register FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+
     .AddJwtBearer(o =>
     {
         o.TokenValidationParameters = new TokenValidationParameters
@@ -49,6 +54,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+        o.Events = new JwtBearerEvents
+        {
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                var result = System.Text.Json.JsonSerializer.Serialize(new { message = "You are not Authorized" });
+                return context.Response.WriteAsync(result);
+            }
         };
     });
 
@@ -237,6 +253,40 @@ app.MapPost("/api/books", async (BookDto payload , IBookService service) =>
 });
 
 // Get book by ID
+app.MapGet("/api/books/{id:int}", async (int id, IBookService service) =>
+{
+    var book = await service.GetByIdAsync(id);
+    if (book == null)
+        return Results.NotFound(new { message = "Book not found" });
+    return Results.Ok(book);
+})
+.RequireAuthorization()
+.WithTags(Tags.Books)
+.WithOpenApi(op =>
+{
+    op.Summary = "Get book by ID";
+    op.Description = "Retrieves a book by its unique integer ID.";
+    return op;
+});
+
+// Get book by ISBN
+app.MapGet("/api/books/isbn/{isbn}", async (string isbn, IBookService service) =>
+{
+    var book = await service.GetByIsbnAsync(isbn);
+    if (book == null)
+        return Results.NotFound(new { message = "Book not found" });
+    return Results.Ok(book);
+})
+.RequireAuthorization()
+.WithTags(Tags.Books)
+.WithOpenApi(op =>
+{
+    op.Summary = "Get book by ISBN";
+    op.Description = "Retrieves a book by its ISBN number.";
+    return op;
+});
+
+// delete book by ID
 app.MapDelete("/api/books/{id:int}", async (int id, IBookService service) =>
 {
     var deleted = await service.DeleteAsync(id);

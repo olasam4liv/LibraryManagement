@@ -12,12 +12,13 @@ namespace LibraryManagementSystem.Services;
 /// </summary>
 public class BookService : IBookService
 {
-  
     private readonly AppDbContext _context;
+    private readonly ICacheService _cache;
 
-    public BookService(AppDbContext context)
+    public BookService(AppDbContext context, ICacheService cache)
     {
         _context = context;
+        _cache = cache;
     }
 
     /// <summary>
@@ -29,6 +30,11 @@ public class BookService : IBookService
     /// <returns>Paged result of books</returns>
     public async Task<PagedResult<Book>> SearchAsync(string? searchParams, int page = 1, int pageSize = 10)
     {
+        string cacheKey = $"books:{searchParams}:{page}:{pageSize}";
+        var cached = _cache.Get<PagedResult<Book>>(cacheKey);
+        if (cached != null)
+            return cached;
+
         IQueryable<Book> queryable = _context.Books.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(searchParams))
         {
@@ -47,6 +53,7 @@ public class BookService : IBookService
             PageNumber = page,
             PageSize = pageSize
         };
+        _cache.Set(cacheKey, result);
         return result;
     }
 
@@ -68,6 +75,32 @@ public class BookService : IBookService
         await _context.SaveChangesAsync();
         return book;
     }
+        public async Task<Book?> GetByIdAsync(int id)
+    {
+        // Try cache first
+        string cacheKey = $"book:id:{id}";
+        var cached = _cache.Get<Book>(cacheKey);
+        if (cached != null)
+            return cached;
+        var book = await _context.Books.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id);
+        if (book != null)
+            _cache.Set(cacheKey, book);
+        return book;
+    }
+
+    public async Task<Book?> GetByIsbnAsync(string isbn)
+    {
+        // Try cache first
+        string cacheKey = $"book:isbn:{isbn}";
+        var cached = _cache.Get<Book>(cacheKey);
+        if (cached != null)
+            return cached;
+        var book = await _context.Books.AsNoTracking().FirstOrDefaultAsync(b => b.ISBN == isbn);
+        if (book != null)
+            _cache.Set(cacheKey, book);
+        return book;
+    }
+
 
     /// <summary>
     /// Deletes a book by ID.
