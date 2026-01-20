@@ -16,11 +16,12 @@ using Serilog;
 
 
 
+
+
+var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .CreateLogger();
-
-var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
 
 builder.Services.AddDbContext<AppDbContext>(o =>
