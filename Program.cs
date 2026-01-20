@@ -1,18 +1,19 @@
-
-using System.Text;
-using BCrypt.Net;
 using LibraryManagementSystem.Data;
 using LibraryManagementSystem.Dto;
 using LibraryManagementSystem.Endpoints;
 using LibraryManagementSystem.Entities;
 using LibraryManagementSystem.Interfaces;
-using LibraryManagementSystem.Services;
 using LibraryManagementSystem.Middleware;
+using LibraryManagementSystem.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Swashbuckle.AspNetCore.SwaggerUI;
 using Serilog;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using Swashbuckle.AspNetCore.SwaggerUI;
+using System.Text;
+using Microsoft.OpenApi.Models;
 
 
 
@@ -30,6 +31,10 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<IUserService, UserService>();
+
+// Register FluentValidation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
@@ -49,28 +54,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// Configure Swagger to use JWT Bearer Authentication
+// Enable XML comments for Swagger
+var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
 builder.Services.AddSwaggerGen(options =>
 {
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    options.IncludeXmlComments(xmlPath, true);
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        In = ParameterLocation.Header,
         Description = "Enter 'Bearer' [space] and then your valid JWT token."
     });
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            new OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                Reference = new OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
             },
@@ -110,7 +116,14 @@ app.MapPost("/api/auth/register", async (RegisterDto payload, IUserService userS
     if (user == null)
         return Results.BadRequest(new { Message = "Email already in use" });
     return Results.Ok(new { message = "User registered successfully", Id = user.Id });
-}).WithTags(Tags.Auth);
+})
+.WithTags(Tags.Auth)
+.WithOpenApi(op =>
+{
+    op.Summary = "Register a new user";
+    op.Description = "Creates a new user account with the provided details.";
+    return op;
+});
 
 app.MapPost("/api/auth/login", async (
     LoginDto payload, 
@@ -132,7 +145,14 @@ app.MapPost("/api/auth/login", async (
         accessToken = tokenSvc.CreateAccessToken(user),
         refreshToken = user.RefreshToken
     });
-}).WithTags(Tags.Auth);
+})
+.WithTags(Tags.Auth)
+.WithOpenApi(op =>
+{
+    op.Summary = "Login user";
+    op.Description = "Authenticates a user and returns JWT access and refresh tokens.";
+    return op;
+});
 
 app.MapPost("/api/auth/refresh", async (
     string refreshToken, 
@@ -153,27 +173,46 @@ app.MapPost("/api/auth/refresh", async (
         refreshToken = user.RefreshToken
     });
 })
-.WithTags(Tags.Auth);
+.WithTags(Tags.Auth)
+.WithOpenApi(op =>
+{
+    op.Summary = "Refresh JWT token";
+    op.Description = "Refreshes the JWT access token using a valid refresh token.";
+    return op;
+});
 
 app.MapPost("/api/auth/logout", async (string refreshToken, IUserService userService) =>
 {
     await userService.LogoutAsync(refreshToken);
     return Results.Ok(new { message = "Logged out successfully" });
-}).WithTags(Tags.Auth);
+})
+.WithTags(Tags.Auth)
+.WithOpenApi(op =>
+{
+    op.Summary = "Logout user";
+    op.Description = "Logs out the user by invalidating the refresh token.";
+    return op;
+});
 
 // BOOKS 
 // Search books endpoint
-app.MapGet("/api/books/search", async (IBookService service,string query,  int page = 1, int pageSize = 10) =>
+app.MapGet("/api/books/search", async (IBookService service, string? searchParams,  int page = 1, int pageSize = 10) =>
 {
-    var result = await service.SearchAsync(query, page, pageSize);
+    var result = await service.SearchAsync(searchParams, page, pageSize);
     if (result == null || !result.Items.Any())
     {
         return Results.NotFound(new { message = "No books found matching the query." });
     }
     return Results.Ok(result);
 })
-    .RequireAuthorization()
-    .WithTags(Tags.Books);
+.RequireAuthorization()
+.WithTags(Tags.Books)
+.WithOpenApi(op =>
+{
+    op.Summary = "Search books";
+    op.Description = "Searches for books by title, author, or ISBN. Supports pagination.";
+    return op;
+});
 
 
 app.MapPost("/api/books", async (BookDto payload , IBookService service) =>
@@ -189,17 +228,29 @@ app.MapPost("/api/books", async (BookDto payload , IBookService service) =>
     return Results.Created($"/api/books/{created.Id}", created);
 })
 .RequireAuthorization()
-.WithTags(Tags.Books);
+.WithTags(Tags.Books)
+.WithOpenApi(op =>
+{
+    op.Summary = "Add a new book";
+    op.Description = "Adds a new book to the library. If the ISBN already exists, returns the existing book.";
+    return op;
+});
 
 // Get book by ID
 app.MapDelete("/api/books/{id:int}", async (int id, IBookService service) =>
 {
     var deleted = await service.DeleteAsync(id);
-    return deleted ? 
-        Results.NotFound(new { message = "Book not found" }) : 
-        Results.Ok(new { message = "Book deleted successfully" });
+    return deleted ?
+        Results.Ok(new { message = "Book deleted successfully" }) :
+        Results.NotFound(new { message = "Book not found" });
 })
 .RequireAuthorization()
-.WithTags(Tags.Books);
+.WithTags(Tags.Books)
+.WithOpenApi(op =>
+{
+    op.Summary = "Delete a book";
+    op.Description = "Deletes a book from the library by its ID.";
+    return op;
+});
 
 app.Run();

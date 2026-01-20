@@ -6,11 +6,8 @@ public static class DataSeeder
     public static void Seed(AppDbContext context)
     {
         // Seed default books (including Nigerian authors)
-        if (!context.Books.Any())
-        {
             var books = new List<Book>
             {
-                
                 new Book
                 {
                     Title = "Things Fall Apart",
@@ -54,23 +51,37 @@ public static class DataSeeder
                     PublishedDate = new DateTime(2017, 3, 2)
                 }
             };
-            context.Books.AddRange(books);
-            context.SaveChanges();
-        }
+            var newBooks = books.Where(b => !context.Books.Any(db => db.ISBN == b.ISBN)).ToList();
+            if (newBooks.Any())
+            {
+                context.Books.AddRange(newBooks);
+                context.SaveChanges();
+            }
 
         // Seed default user
-        if (!context.Users.Any())
+        var defaultUsers = new List<User>
         {
-            var password = "Password123!";
-            var defaultUser = new User
+            new User
             {
                 FullName = "Default Admin",
                 Email = "admin@library.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
                 RefreshToken = null,
                 RefreshTokenExpiry = DateTime.MinValue
-            };
-            context.Users.Add(defaultUser);
+            },
+            new User
+            {
+                FullName = "Samuel Olatunji",
+                Email = "olasam4liv@gmail.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Samsam1234!"),
+                RefreshToken = null,
+                RefreshTokenExpiry = DateTime.MinValue
+            }
+        };
+        var newUsers = defaultUsers.Where(u => !context.Users.Any(db => db.Email == u.Email)).ToList();
+        if (newUsers.Any())
+        {
+            context.Users.AddRange(newUsers);
             context.SaveChanges();
         }
     }
