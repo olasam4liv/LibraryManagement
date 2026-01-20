@@ -3,12 +3,7 @@
 A minimal ASP.NET Core Web API for managing a library's books and users, featuring JWT authentication, in-memory caching, and FluentValidation.
 
 ## Features
-- Register, login, and manage users with JWT authentication
-- CRUD operations for books
-- Search books by title, author, or ISBN
-- In-memory caching for book queries
-- FluentValidation for input validation
-- Swagger UI for API documentation and testing
+ - Request and response logging middleware (structured JSON logs with Serilog)
 
 ## Prerequisites
 - [.NET 8 SDK or later](https://dotnet.microsoft.com/download)
@@ -33,13 +28,25 @@ cd LibraryManagementSystem
 
 ### 3. Build and Run the API
 ```
+dotnet restore
 dotnet build
 dotnet run
 ```
 - The API will be available at `https://localhost:5001` or `http://localhost:5000` by default.
+### 3. Run Entity Framework Core Migrations
+If you need to update the database schema, use the following commands:
+```
+dotnet ef migrations add <MigrationName>
+dotnet ef database update
+```
+You may need to install the EF Core CLI tools:
+```
+dotnet tool install --global dotnet-ef
+```
+
 
 ### 4. Access Swagger UI
-- Open your browser and go to: [https://localhost:5001](https://localhost:5001) or [http://localhost:5000](http://localhost:5000)
+dotnet build
 - Swagger UI provides interactive documentation and allows you to test all endpoints.
 
 ## Default User Credentials
@@ -72,13 +79,13 @@ dotnet run
   "title": "The Great Gatsby",
   "author": "F. Scott Fitzgerald",
   "isbn": "9780743273565",
-  "publishedDate": "1925-04-10T00:00:00Z"
+  "publishedDate": "1925-04-10"
 }
 ```
 
 ## Useful Endpoints
 - `POST /api/auth/register` — Register a new user
-- `POST /api/auth/login` — Login and receive JWT tokens
+  "publishedDate": "1925-04-10T00:00:00Z"
 - `POST /api/auth/refresh` — Refresh JWT token
 - `POST /api/auth/logout` — Logout user
 - `GET /api/books/search` — Search for books (query, page, pageSize)

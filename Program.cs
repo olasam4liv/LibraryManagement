@@ -21,6 +21,7 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
+    .WriteTo.File(new Serilog.Formatting.Compact.CompactJsonFormatter(), "logs/log.json", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 builder.Host.UseSerilog();
 
@@ -100,8 +101,11 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 
+
 var app = builder.Build();
 
+// Log all requests and responses
+app.UseMiddleware<LibraryManagementSystem.Middleware.RequestResponseLoggingMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 
 using (var scope = app.Services.CreateScope())
