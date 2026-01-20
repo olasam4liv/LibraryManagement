@@ -76,10 +76,10 @@ dotnet build
 ### Add Book
 ```json
 {
-  "title": "The Great Gatsby",
-  "author": "F. Scott Fitzgerald",
+  "title": "How to code",
+  "author": "Samuel Olatunji",
   "isbn": "9780743273565",
-  "publishedDate": "1925-04-10"
+  "publishedDate": "1995-04-10"
 }
 ```
 

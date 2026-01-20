@@ -128,6 +128,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // AUTH ENDPOINTS
+#region Auth Endpoints
 app.MapPost("/api/auth/register", async (RegisterDto payload, IUserService userService) =>
 {
     var user = await userService.RegisterAsync(payload.FullName, payload.Email, payload.Password);
@@ -211,8 +212,9 @@ app.MapPost("/api/auth/logout", async (string refreshToken, IUserService userSer
     op.Description = "Logs out the user by invalidating the refresh token.";
     return op;
 });
-
+#endregion
 // BOOKS 
+#region Book Endpoints
 // Search books endpoint
 app.MapGet("/api/books/search", async (IBookService service, string? searchParams,  int page = 1, int pageSize = 10) =>
 {
@@ -315,5 +317,5 @@ app.MapDelete("/api/books/{id:int}", async (int id, IBookService service) =>
     op.Description = "Deletes a book from the library by its ID.";
     return op;
 });
-
+#endregion
 app.Run();
