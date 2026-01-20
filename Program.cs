@@ -1,4 +1,3 @@
-
 using LibraryManagementSystem.Data;
 using LibraryManagementSystem.Dto;
 using LibraryManagementSystem.Endpoints;
@@ -15,7 +14,6 @@ using FluentValidation.AspNetCore;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using System.Text;
 using Microsoft.OpenApi.Models;
-
 
 
 
@@ -232,15 +230,8 @@ app.MapGet("/api/books/search", async (IBookService service, string? searchParam
 
 
 app.MapPost("/api/books", async (BookDto payload , IBookService service) =>
-{
-    var newBook = new Book
-    {
-        Title =  payload.Title,
-        Author = payload.Author,
-        ISBN = payload.ISBN,
-        PublishedDate = payload.PublishedDate
-    };
-    var created = await service.CreateAsync(newBook);
+{    
+    var created = await service.CreateAsync(payload);
     return Results.Created($"/api/books/{created.Id}", created);
 })
 .RequireAuthorization()
@@ -285,7 +276,25 @@ app.MapGet("/api/books/isbn/{isbn}", async (string isbn, IBookService service) =
     op.Description = "Retrieves a book by its ISBN number.";
     return op;
 });
-
+// Update book by ID
+app.MapPut("/api/books/{id:int}", async (
+    int id,
+    BookDto payload ,
+    IBookService service ) =>
+{   
+    var updated = await service.UpdateAsync(id, payload);
+    if (updated == null)
+        return Results.NotFound(new { message = "Book not found" });
+    return Results.Ok(updated);
+})
+.RequireAuthorization()
+.WithTags(Tags.Books)
+.WithOpenApi(op =>
+{
+    op.Summary = "Update a book";
+    op.Description = "Updates a book's details by its ID.";
+    return op;
+});
 // delete book by ID
 app.MapDelete("/api/books/{id:int}", async (int id, IBookService service) =>
 {
